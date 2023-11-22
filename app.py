@@ -1,10 +1,10 @@
 import os
 
-from flask import Flask, render_template, request, flash, redirect, session, g
-# from flask_debugtoolbar import DebugToolbarExtension
+from flask import Flask, render_template, request, flash, redirect, session, g, url_for
+from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, LoginForm, MessageForm
+from forms import UserAddForm, LoginForm, MessageForm, ProfileUpdateForm
 from models import db, connect_db, User, Message
 
 CURR_USER_KEY = "curr_user"
@@ -20,7 +20,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ECHO'] = False
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "it's a secret")
-# toolbar = DebugToolbarExtension(app)
+toolbar = DebugToolbarExtension(app)
 
 connect_db(app)
 
@@ -64,7 +64,6 @@ def signup():
     If the there already is a user with that username: flash message
     and re-present form.
     """
-    import pdb; pdb.set_trace()
     form = UserAddForm()
 
     if form.validate_on_submit():
@@ -112,8 +111,11 @@ def login():
 @app.route('/logout')
 def logout():
     """Handle logout of user."""
+    do_logout()
+    
 
-    # IMPLEMENT THIS
+    flash("You have successfully been logged out", "success")
+    return redirect(url_for('logi'))
 
 
 ##############################################################################
@@ -211,8 +213,35 @@ def stop_following(follow_id):
 def profile():
     """Update profile for current user."""
 
-    # IMPLEMENT THIS
+    form = ProfileUpdateForm()
 
+    if form.validate_on_submit():
+        user_id = session.get('user_id')
+        if user_id:
+            user = User.query.get(user_id)
+            user.bio = form.bio.data
+            user.location = form.location.data
+            user.header_image_url = form.header_image_url.data
+
+            db.session.commit()
+
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('profile')) 
+
+    # If not logged in, redirect to login page
+    if 'user_id' not in session:
+        flash("You need to log in first", "danger")
+        return redirect(url_for('login'))
+
+    # Pre-fill the form with the current user's data
+    user_id = session['user_id']
+    user = User.query.get(user_id)
+    form.bio.data = user.bio
+    form.location.data = user.location
+    form.header_image_url.data = user.header_image_url
+
+    return render_template('users/profile.html', form=form)
+    
 
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
