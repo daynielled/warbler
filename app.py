@@ -18,7 +18,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ECHO'] = False
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = True
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "it's a secret")
 toolbar = DebugToolbarExtension(app)
 
@@ -115,7 +115,7 @@ def logout():
     
 
     flash("You have successfully been logged out", "success")
-    return redirect(url_for('logi'))
+    return redirect(url_for('login'))
 
 
 ##############################################################################
@@ -210,38 +210,33 @@ def stop_following(follow_id):
 
 
 @app.route('/users/profile', methods=["GET", "POST"])
-def profile():
+def edit_profile():
     """Update profile for current user."""
 
-    form = ProfileUpdateForm()
+    if not g.user:
+        flash("Access unauthorized", "danger")
+        return redirect("/")
+    
+    user = g.user
+    form = ProfileUpdateForm(obj=user)
 
     if form.validate_on_submit():
-        user_id = session.get('user_id')
-        if user_id:
-            user = User.query.get(user_id)
+       if User.authenticate(user.username, form.password.data):
+            user.username = form.username.data
+            user.email = form.email.data
+            user.image_url = form.image_url.data 
+            user.header_image_url = form.header_image_url.data 
             user.bio = form.bio.data
-            user.location = form.location.data
-            user.header_image_url = form.header_image_url.data
 
             db.session.commit()
 
             flash('Profile updated successfully!', 'success')
-            return redirect(url_for('profile')) 
+            return redirect(f"/users/{user.id}")
+       else:
+           flash('Wrong password, please try again.', 'danger')
+    return render_template('users/edit.html', form=form, user_id=user.id)
 
-    # If not logged in, redirect to login page
-    if 'user_id' not in session:
-        flash("You need to log in first", "danger")
-        return redirect(url_for('login'))
-
-    # Pre-fill the form with the current user's data
-    user_id = session['user_id']
-    user = User.query.get(user_id)
-    form.bio.data = user.bio
-    form.location.data = user.location
-    form.header_image_url.data = user.header_image_url
-
-    return render_template('users/profile.html', form=form)
-    
+   
 
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
@@ -332,6 +327,11 @@ def homepage():
     else:
         return render_template('home-anon.html')
 
+@app.errorhandler(404)
+def page_not_found(e):
+    """404 NOT FOUND page."""
+
+    return render_template('404.html'), 404
 
 ##############################################################################
 # Turn off all caching in Flask
