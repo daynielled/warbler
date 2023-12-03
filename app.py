@@ -1,11 +1,11 @@
 import os
 
-from flask import Flask, render_template, request, flash, redirect, session, g, url_for
+from flask import Flask, render_template, request, flash, redirect, session, g, url_for, abort
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
 from forms import UserAddForm, LoginForm, MessageForm, ProfileUpdateForm
-from models import db, connect_db, User, Message,Likes,Follows
+from models import db, connect_db, User, Message
 
 CURR_USER_KEY = "curr_user"
 
@@ -222,27 +222,30 @@ def show_likes(user_id):
     return render_template('users/likes.html', user=user, likes=user.likes)
 
 @app.route('/messages/<int:message_id>/like', methods=['POST'])
-def like_message(message_id):
+def add_like(message_id):
     """Like a message"""
 
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    message = Message.query.get_or_404(message_id)
+    liked_message = Message.query.get(message_id)
+    if not liked_message or liked_message.user_id is None:
+        flash("Invalid message.", "danger")
+        return redirect("/")
+    if liked_message.user_id == g.user.id:
+        return abort(403)
 
-    if message.user_id == g.user.id:
-        flash('Cannot like your own message', 'danger')
-        return redirect(url_for('show_message', message_id=message_id))
-    
-    existing_like = Likes.query.filter_by(user_id=g.user.id, message_id=message_id).first()
-    if existing_like:
-        db.session.delete(existing_like)
-        flash("Message liked!", "success")
+    user_likes = g.user.likes
 
-        db.session.commit()
+    if liked_message in user_likes:
+        g.user.likes = [like for like in user_likes if like != liked_message]
+    else:
+        g.user.likes.append(liked_message)
 
-    return redirect(url_for('show_message', message_id=message_id))
+    db.session.commit()
+
+    return redirect("/")
 
 @app.route('/users/profile', methods=["GET", "POST"])
 def edit_profile():
@@ -307,6 +310,7 @@ def messages_add():
 
     if form.validate_on_submit():
         msg = Message(text=form.text.data)
+       
         g.user.messages.append(msg)
         db.session.commit()
 
