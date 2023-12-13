@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 
+
 {% block content %}
+
 
 <div id="warbler-hero" class="full-width"></div>
 <img src="{{ user.image_url }}" alt="Image for {{ user.username }}" id="profile-avatar">
@@ -55,16 +57,38 @@
   </div>
 </div>
 
+
 <div class="row">
   <div class="col-sm-3">
     <h4 id="sidebar-username">@{{ user.username }}</h4>
     <p>{{ user.bio }}</p>
-    <p class="user-location"><span class="fa fa-map-marker"></span>LOCATION HERE</p>
+    <p class="user-location"><span class="fa fa-map-marker"></span>{{ user.location }}</p>
   </div>
 
+
+  <div>
+    <h2>Liked Warbles</h2>
+    <p>You have liked {{ liked_count }} warbles.</p>
+    <a href="{{ url_for('liked_warbles') }}">View Liked Warbles</a>
+    {% if liked_messages %}
+    <ul>
+      {% for liked_message in liked_messages %}
+      <li>{{ liked_message.text }} - {{ liked_message.user.username }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>You haven't liked any warbles yet.</p>
+    {% endif %}
+  </div>
+
+
   {% block user_details %}
+ 
   {% endblock %}
+
 
 </div>
 
+
 {% endblock %}
+

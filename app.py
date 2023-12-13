@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template, request, flash, redirect, session, g, url_for, abort
+from flask import Flask, render_template, request, flash, redirect, session, g, url_for, abort, request
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
@@ -18,7 +18,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ECHO'] = False
-app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = True
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "it's a secret")
 toolbar = DebugToolbarExtension(app)
 
@@ -223,29 +223,53 @@ def show_likes(user_id):
 
 @app.route('/messages/<int:message_id>/like', methods=['POST'])
 def add_like(message_id):
-    """Like a message"""
+    """Toggle a liked message for the currently-logged-in user."""
 
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    liked_message = Message.query.get(message_id)
-    if not liked_message or liked_message.user_id is None:
-        flash("Invalid message.", "danger")
-        return redirect("/")
+    liked_message = Message.query.get_or_404(message_id)
+
     if liked_message.user_id == g.user.id:
         return abort(403)
 
     user_likes = g.user.likes
 
     if liked_message in user_likes:
-        g.user.likes = [like for like in user_likes if like != liked_message]
+        g.user.likes.remove(liked_message)
+
+        # g.user.likes = [like for like in user_likes if like != liked_message]
     else:
         g.user.likes.append(liked_message)
 
+    print("Before commit")
     db.session.commit()
+    print("After commit")
+    print('Referrer:', request.referrer)
+    return redirect(request.referrer)
+    
 
-    return redirect("/")
+@app.route('/profile/likes')
+def liked_warbles():
+    """Display the warbles liked by the current user."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    liked_messages = g.user.likes
+    return render_template('liked_warbles.html', liked_messages=liked_messages)
+
+# Modify your user profile page to show the number of liked warbles and link to the liked warbles page
+@app.route('/profile')
+def user_profile():
+    """Display the user's profile."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    liked_count = len(g.user.likes)
+    return render_template('profile.html', liked_count=liked_count)
 
 @app.route('/users/profile', methods=["GET", "POST"])
 def edit_profile():

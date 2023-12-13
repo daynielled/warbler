@@ -29,7 +29,7 @@ from app import app
 db.create_all()
 
 
-class UserModelTestCase(TestCase):
+class UserModelTestCase(unittest.TestCase):
     """Test views for messages."""
 
     def setUp(self):
@@ -40,6 +40,10 @@ class UserModelTestCase(TestCase):
         Follows.query.delete()
 
         self.client = app.test_client()
+
+    def tearDown(self):
+        with self.app.app_context():
+            db.drop_all()
 
     def test_user_model(self):
         """Does basic model work?"""
@@ -53,6 +57,17 @@ class UserModelTestCase(TestCase):
         db.session.add(u)
         db.session.commit()
 
+    def test_user_authentication(self):
+        user = User.signup(username='testuser', email='test@example.com', password='testpassword', image_url='test.jpg')
+        db.session.commit()
+
+        authenticated_user = User.authenticate(username='testuser', password='testpassword')
+        self.assertIsNotNone(authenticated_user)
+        self.assertEqual(authenticated_user.id, user.id)
+
         # User should have no messages & no followers
         self.assertEqual(len(u.messages), 0)
         self.assertEqual(len(u.followers), 0)
+
+if __name__ == '__main__':
+     unittest.main()

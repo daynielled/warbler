@@ -71,3 +71,21 @@ class MessageViewTestCase(TestCase):
 
             msg = Message.query.one()
             self.assertEqual(msg.text, "Hello")
+    def test_messages_add_view(self):
+        user = User.signup(username='testuser', email='test@example.com', password='testpassword', image_url='test.jpg')
+        db.session.commit()
+
+        self.client.post('/login', data=dict(
+            username='testuser',
+            password='testpassword',
+        ), follow_redirects=True)
+
+        response = self.client.post('/messages/new', data=dict(
+            text='Test message content'
+        ), follow_redirects=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Test message content', response.data)
+        # Add more assertions based on your specific views...
+
+    # Add more Message views tests...
